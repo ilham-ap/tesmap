@@ -7,18 +7,99 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
     <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .navbar {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            display: inline-block;
+            font-size: 16px;
+        }
+
+        .navbar a:hover {
+            background-color: #575757;
+        }
+
         #map {
             height: 600px;
-            width: 100%;
+            width: 80%;
+            margin: 20px auto; /* Center the map and add margin */
+        }
+
+        .draw-title {
+            text-align: center;
+            font-weight: bold;
+            padding: 10px;
+            background: white;
+            margin-bottom: 5px;
+        }
+
+        .form-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .form-container select,
+        .form-container input,
+        .form-container button {
+            margin: 5px 0;
+            padding: 10px;
+        }
+
+        .download-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            display: block;
+        }
+        
+        .download-button:disabled {
+            background-color: #a5a5a5;
+            cursor: not-allowed;
         }
     </style>
 </head>
 <body>
+    <div class="navbar">
+        <a href="#home" id="home-link">Home</a>
+        <a href="#data" id="data-link">Data</a>
+        <a href="#about" id="about-link">About</a>
+    </div>
     <div id="map"></div>
+    <div class="form-container">
+        <div>
+            Xmin: <input type="text" id="xmin" />
+            Ymin: <input type="text" id="ymin" />
+            Xmax: <input type="text" id="xmax" />
+            Ymax: <input type="text" id="ymax" />
+        </div>
+        <select id="dataset-select">
+            <option value="" selected disabled>Select a dataset</option>
+            <option value="Dataset 1">Dataset 1</option>
+            <option value="Dataset 2">Dataset 2</option>
+        </select>
+        <input type="date" id="date-input" />
+        <button id="download-btn" class="download-button" disabled>Download Coordinates</button>
+    </div>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
     <script>
-        var map = L.map('map').setView([51.505, -0.09], 13);
+        var map = L.map('map').setView([23.7, 121.0], 8); // Center on Taiwan with zoom level 8
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -28,11 +109,68 @@
         map.addLayer(drawnItems);
 
         var drawControl = new L.Control.Draw({
+            position: 'topleft',
+            draw: {
+                polygon: false,
+                polyline: false,
+                circle: false,
+                rectangle: true, // Only allow drawing rectangles
+                marker: false,
+                circlemarker: false
+
+            },
             edit: {
-                featureGroup: drawnItems
+                featureGroup: drawnItems,
+                remove: true
             }
         });
+
         map.addControl(drawControl);
+
+        // Add title above the draw toolbar
+        var drawControlContainer = document.querySelector('.leaflet-draw-toolbar');
+        var title = document.createElement('div');
+        title.className = 'draw-title';
+        title.innerText = 'Drawing Tools';
+        drawControlContainer.insertBefore(title, drawControlContainer.firstChild);
+
+        
+        var coordinates = [];
+
+        function updateCoordinatesInputs() {
+            if (coordinates.length > 0) {
+                var latLngs = coordinates[0];
+                var latitudes = latLngs.map(latLng => latLng.lat);
+                var longitudes = latLngs.map(latLng => latLng.lng);
+
+                var xmin = Math.min(...longitudes);
+                var xmax = Math.max(...longitudes);
+                var ymin = Math.min(...latitudes);
+                var ymax = Math.max(...latitudes);
+
+                document.getElementById('xmin').value = xmin.toFixed(6);
+                document.getElementById('ymin').value = ymin.toFixed(6);
+                document.getElementById('xmax').value = xmax.toFixed(6);
+                document.getElementById('ymax').value = ymax.toFixed(6);
+            } else {
+                document.getElementById('xmin').value = '';
+                document.getElementById('ymin').value = '';
+                document.getElementById('xmax').value = '';
+                document.getElementById('ymax').value = '';
+            }
+        }
+
+        function validateForm() {
+            var datasetSelect = document.getElementById('dataset-select').value;
+            var dateInput = document.getElementById('date-input').value;
+            var downloadBtn = document.getElementById('download-btn');
+
+            if (datasetSelect && dateInput && (coordinates.length > 0 || (document.getElementById('xmin').value && document.getElementById('ymin').value && document.getElementById('xmax').value && document.getElementById('ymax').value))) {
+                downloadBtn.disabled = false;
+            } else {
+                downloadBtn.disabled = true;
+            }
+        }
 
         map.on(L.Draw.Event.CREATED, function (event) {
             var layer = event.layer;
@@ -40,11 +178,62 @@
 
             drawnItems.addLayer(layer);
 
-            if (type === 'polygon' || type === 'rectangle') {
-                var coordinates = layer.getLatLngs();
+            if (type === 'rectangle') {
+                coordinates = layer.getLatLngs();
                 console.log('Selected area coordinates:', coordinates);
-                alert('Selected area coordinates: ' + JSON.stringify(coordinates));
+                
+                updateCoordinatesInputs();
+                validateForm();
             }
+        });
+
+        map.on(L.Draw.Event.EDITED, function (event) {
+            var layers = event.layers;
+            layers.eachLayer(function (layer) {
+                coordinates = layer.getLatLngs();
+                updateCoordinatesInputs();
+                validateForm();
+            });
+        });
+
+        map.on(L.Draw.Event.DELETED, function (event) {
+            if (drawnItems.getLayers().length === 0) {
+                coordinates = []; // Clear the coordinates
+                updateCoordinatesInputs();
+                validateForm();
+            }
+        });
+
+        document.getElementById('dataset-select').addEventListener('change', validateForm);
+        document.getElementById('date-input').addEventListener('input', validateForm);
+
+        document.getElementById('download-btn').addEventListener('click', function() {
+            var selectedDataset = document.getElementById('dataset-select').value;
+            var selectedDate = document.getElementById('date-input').value;
+
+            var xmin = parseFloat(document.getElementById('xmin').value);
+            var ymin = parseFloat(document.getElementById('ymin').value);
+            var xmax = parseFloat(document.getElementById('xmax').value);
+            var ymax = parseFloat(document.getElementById('ymax').value);
+
+            if (isNaN(xmin) || isNaN(ymin) || isNaN(xmax) || isNaN(ymax)) {
+                alert('Please enter valid coordinate values.');
+                return;
+            }
+
+            var data = {
+                coordinates: { xmin, ymin, xmax, ymax },
+                dataset: selectedDataset,
+                date: selectedDate
+            };
+
+            var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            var downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "coordinates.json");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
         });
     </script>
 </body>
