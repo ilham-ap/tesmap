@@ -82,6 +82,20 @@
             background: white;
             margin-bottom: 5px;
         }
+
+        /* Custom CSS for layer control box */
+        .leaflet-control-layers {
+            background: white;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .leaflet-control-layers label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
     </style>
 </head>
 <body>
@@ -95,10 +109,17 @@
         <div class="form-container">
             <div>
                 Xmin: <input type="text" id="xmin" />
+                </div>
+                <div>
                 Ymin: <input type="text" id="ymin" />
+            </div>
+        <div>
                 Xmax: <input type="text" id="xmax" />
+            </div>
+            <div>
                 Ymax: <input type="text" id="ymax" />
             </div>
+            
             <select id="dataset-select">
                 <option value="" selected disabled>Select a dataset</option>
                 <option value="Dataset 1">Dataset 1</option>
@@ -112,7 +133,9 @@
     <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
     <script>
         var map = L.map('map').setView([23.7, 121.0], 8); // Center on Taiwan with zoom level 8
-
+        var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.esri.com/en-us/arcgis/products/arcgis-online/overview">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
         var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: '&copy; <a href="https://www.esri.com/en-us/arcgis/products/arcgis-online/overview">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         });
@@ -121,9 +144,7 @@
             attribution: '&copy; <a href="https://www.esri.com/en-us/arcgis/products/arcgis-online/overview">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         });
 
-        var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.esri.com/en-us/arcgis/products/arcgis-online/overview">Esri</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        });
+        
 
         
 
@@ -133,10 +154,10 @@
             "Terrain": terrainLayer
         };
 
-        L.control.layers(baseMaps).addTo(map);
+        L.control.layers(baseMaps, null, { position: 'topright', collapsed: false }).addTo(map);
 
         // Set default layer
-        satelliteLayer.addTo(map);
+        osmLayer.addTo(map);
 
         var drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
